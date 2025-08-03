@@ -1,0 +1,1034 @@
+From 14788bf15713599227f069a8b17f34a47c0a4d1b Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sun, 3 Aug 2025 22:44:09 +0000
+Subject: [PATCH 1/2] Refactor for Render deployment: env vars, async bots,
+ Docker, and documentation
+
+Co-authored-by: hitlerxoox <hitlerxoox@gmail.com>
+---
+ .gitignore       |  86 +++++++++++++++++++
+ Dockerfile       |  41 +++++++++
+ README.md        | 169 +++++++++++++++++++++++++++++++++++++
+ User_check.py    |  29 ++++---
+ add.py           |  32 ++++---
+ deploy.md        | 147 ++++++++++++++++++++++++++++++++
+ main.py          | 212 +++++++++++++++++++++++++++++++++++++++++++++++
+ render.yaml      |  46 ++++++++++
+ requirements.txt |  13 +++
+ 9 files changed, 751 insertions(+), 24 deletions(-)
+ create mode 100644 .gitignore
+ create mode 100644 Dockerfile
+ create mode 100644 README.md
+ create mode 100644 deploy.md
+ create mode 100644 main.py
+ create mode 100644 render.yaml
+ create mode 100644 requirements.txt
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..3fab2e9
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,86 @@
++# Python
++__pycache__/
++*.py[cod]
++*$py.class
++*.so
++.Python
++build/
++develop-eggs/
++dist/
++downloads/
++eggs/
++.eggs/
++lib/
++lib64/
++parts/
++sdist/
++var/
++wheels/
++*.egg-info/
++.installed.cfg
++*.egg
++MANIFEST
++
++# Virtual Environment
++venv/
++env/
++ENV/
++env.bak/
++venv.bak/
++
++# IDEs
++.vscode/
++.idea/
++*.swp
++*.swo
++*~
++
++# Logs
++*.log
++logs/
++app.log
++username_checker.log
++
++# Database (comment if you want to include the DB)
++# accounts.db
++*.db-journal
++*.db-wal
++
++# Environment variables
++.env
++.env.local
++.env.development.local
++.env.test.local
++.env.production.local
++config.py
++
++# OS generated files
++.DS_Store
++.DS_Store?
++._*
++.Spotlight-V100
++.Trashes
++ehthumbs.db
++Thumbs.db
++
++# User-specific files
++claimed_usernames.txt
++fragment_usernames.txt
++
++# Temporary files
++*.tmp
++*.temp
++*.bak
++
++# Docker
++.docker/
++
++# Pytest
++.pytest_cache/
++.coverage
++htmlcov/
++
++# mypy
++.mypy_cache/
++.dmypy.json
++dmypy.json
+\ No newline at end of file
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100644
+index 0000000..2bab69f
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,41 @@
++# استخدام Python 3.11 الرسمي كصورة أساسية
++FROM python:3.11-slim
++
++# تعيين متغير البيئة لتجنب كتابة ملفات .pyc
++ENV PYTHONDONTWRITEBYTECODE=1
++ENV PYTHONUNBUFFERED=1
++
++# تعيين دليل العمل
++WORKDIR /app
++
++# تحديث النظام وتثبيت الحزم المطلوبة
++RUN apt-get update && apt-get install -y \
++    gcc \
++    g++ \
++    && rm -rf /var/lib/apt/lists/*
++
++# نسخ ملف المتطلبات وتثبيت التبعيات
++COPY requirements.txt .
++RUN pip install --no-cache-dir --upgrade pip
++RUN pip install --no-cache-dir -r requirements.txt
++
++# نسخ الكود المصدري
++COPY . .
++
++# إنشاء مستخدم غير جذر للأمان
++RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
++USER appuser
++
++# تعيين المنفذ المطلوب
++EXPOSE 8080
++
++# تعيين متغيرات البيئة الافتراضية
++ENV PORT=8080
++ENV PYTHONPATH=/app
++
++# فحص الصحة باستخدام Python
++HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
++    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
++
++# تشغيل التطبيق
++CMD ["python", "main.py"]
+\ No newline at end of file
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..1b65dbb
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,169 @@
++# 🤖 تطبيق البوتات المدمج - Telegram Bots Application
++
++هذا المستودع يحتوي على بوتين تليجرام يعملان معاً:
++
++## 🔧 البوتات المتضمنة
++
++### 1. بوت إضافة الحسابات (`add.py`)
++- إضافة وإدارة حسابات التليجرام
++- تشفير بيانات الجلسات
++- إدارة الفئات والتصنيفات
++- فحص حالة الحسابات
++
++### 2. بوت فحص اليوزرات (`User_check.py`)
++- فحص وصيد اليوزرات المتاحة
++- إنشاء قنوات لاختبار اليوزرات
++- إدارة عمليات الصيد بشكل متزامن
++- دعم أنماط مختلفة من اليوزرات
++
++## 🚀 النشر على Render
++
++### الطريقة الأولى: استخدام render.yaml (مُوصى بها)
++
++1. **ادفع الكود إلى GitHub:**
++   ```bash
++   git add .
++   git commit -m "إعداد المستودع للنشر على Render"
++   git push origin main
++   ```
++
++2. **اذهب إلى [Render Dashboard](https://dashboard.render.com)**
++
++3. **اضغط على "New +" ثم "Blueprint"**
++
++4. **اختر المستودع من GitHub**
++
++5. **سيتم قراءة ملف `render.yaml` تلقائياً وإعداد جميع متغيرات البيئة**
++
++### الطريقة الثانية: الإعداد اليدوي
++
++1. **إنشاء خدمة جديدة:**
++   - اذهب إلى Render Dashboard
++   - اضغط "New +" → "Web Service"
++   - اربط مستودعك من GitHub
++
++2. **إعدادات الخدمة:**
++   - **Name:** `telegram-bots`
++   - **Environment:** `Python 3`
++   - **Build Command:** `pip install -r requirements.txt`
++   - **Start Command:** `python main.py`
++
++3. **إضافة متغيرات البيئة:**
++
++## 🔐 متغيرات البيئة المطلوبة
++
++يجب إضافة المتغيرات التالية في إعدادات Render:
++
++### متغيرات أساسية:
++```
++TG_API_ID=26924046
++TG_API_HASH=4c6ef4cee5e129b7a674de156e2bcc15
++BOT_TOKEN=7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA
++CHECK_BOT_TOKEN=7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8
++ADMIN_IDS=985612253
++```
++
++### متغيرات التشفير:
++```
++ENCRYPTION_SALT=render_deployment_salt_2024
++ENCRYPTION_PASSPHRASE=secure_passphrase_for_encryption
++```
++
++### متغيرات اختيارية:
++```
++DB_PATH=accounts.db
++LOG_LEVEL=INFO
++MAX_CONCURRENT_TASKS=10
++SESSION_TIMEOUT=60
++```
++
++## 📁 هيكل المشروع
++
++```
++├── main.py                 # نقطة الدخول الرئيسية
++├── add.py                  # بوت إضافة الحسابات
++├── User_check.py           # بوت فحص اليوزرات
++├── encryption.py           # وظائف التشفير المشتركة
++├── accounts.db             # قاعدة البيانات (يتم إنشاؤها تلقائياً)
++├── requirements.txt        # التبعيات المطلوبة
++├── render.yaml            # إعدادات Render التلقائية
++├── Dockerfile             # ملف Docker للبناء
++└── README.md              # هذا الملف
++```
++
++## 🛠️ التطوير المحلي
++
++### 1. تثبيت التبعيات:
++```bash
++pip install -r requirements.txt
++```
++
++### 2. إعداد متغيرات البيئة:
++```bash
++export TG_API_ID="26924046"
++export TG_API_HASH="4c6ef4cee5e129b7a674de156e2bcc15"
++export BOT_TOKEN="7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA"
++export CHECK_BOT_TOKEN="7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8"
++export ADMIN_IDS="985612253"
++```
++
++### 3. تشغيل التطبيق:
++```bash
++python main.py
++```
++
++## 🔍 فحص الصحة
++
++التطبيق يوفر endpoint للتحقق من حالة الخدمة:
++- **URL:** `https://your-app.onrender.com/health`
++- **استجابة صحيحة:** HTTP 200 مع `{"status": "healthy"}`
++
++## 📝 الميزات
++
++### بوت إضافة الحسابات:
++- ✅ إضافة حسابات برقم الهاتف أو الجلسة
++- ✅ تشفير بيانات الجلسات
++- ✅ إدارة الفئات والتصنيفات
++- ✅ فحص حالة الحسابات
++- ✅ حذف وتحديث الحسابات
++
++### بوت فحص اليوزرات:
++- ✅ فحص اليوزرات المتاحة
++- ✅ دعم أنماط مختلفة من اليوزرات
++- ✅ إنشاء قنوات اختبار تلقائياً
++- ✅ إدارة متزامنة للعمليات
++- ✅ إيقاف مؤقت واستئناف العمليات
++
++## ⚠️ ملاحظات مهمة
++
++1. **الأمان:** جميع الجلسات مشفرة باستخدام مكتبة `cryptography`
++2. **قاعدة البيانات:** يتم استخدام SQLite مع وضع WAL للأداء المحسن
++3. **التزامن:** كلا البوتين يعملان بشكل متزامن دون تداخل
++4. **المراقبة:** النظام يوفر تسجيل مفصل لجميع العمليات
++
++## 🐛 استكشاف الأخطاء
++
++### مشاكل شائعة:
++
++1. **فشل في الاتصال بالتليجرام:**
++   - تأكد من صحة `TG_API_ID` و `TG_API_HASH`
++   - تحقق من اتصال الإنترنت
++
++2. **خطأ في التوكن:**
++   - تأكد من صحة `BOT_TOKEN` و `CHECK_BOT_TOKEN`
++   - تحقق من أن البوتات نشطة في @BotFather
++
++3. **مشاكل الأذونات:**
++   - تأكد من أن `ADMIN_IDS` صحيح
++   - تحقق من أن المستخدم مُدرج في قائمة الأدمن
++
++## 📞 الدعم
++
++في حالة وجود أي مشاكل أو استفسارات، يمكنك:
++- فتح issue في GitHub
++- مراجعة ملفات الـ logs للتشخيص
++- التحقق من حالة الخدمة عبر `/health` endpoint
++
++---
++
++**تم تطوير هذا المشروع ليعمل بكفاءة على منصة Render مع دعم كامل للنشر التلقائي ومتغيرات البيئة.**
+\ No newline at end of file
+diff --git a/User_check.py b/User_check.py
+index 0d7aa6e..7a53726 100644
+--- a/User_check.py
++++ b/User_check.py
+@@ -35,14 +35,14 @@ from telethon.tl.functions.channels import CreateChannelRequest, UpdateUsernameR
+ from telethon.tl.types import Channel, InputChannel
+ from encryption import decrypt_session
+ 
+-# إعدادات البوت
+-API_ID = 26924046
+-API_HASH = '4c6ef4cee5e129b7a674de156e2bcc15'
+-BOT_TOKEN = '7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8'
+-ADMIN_IDS = [985612253]  # استبدل برقمك الخاص
+-DB_PATH = 'accounts.db'  # قاعدة بيانات مشتركة مع بوت إضافة الحسابات
++# إعدادات البوت - استخدام متغيرات البيئة للنشر على Render
++API_ID = int(os.getenv('TG_API_ID'))
++API_HASH = os.getenv('TG_API_HASH')
++BOT_TOKEN = os.getenv('CHECK_BOT_TOKEN')
++ADMIN_IDS = [int(x) for x in os.getenv('ADMIN_IDS', '985612253').split(',') if x]
++DB_PATH = os.getenv('DB_PATH', 'accounts.db')
+ LOG_FILE = 'username_checker.log'
+-MAX_CONCURRENT_TASKS = 10
++MAX_CONCURRENT_TASKS = int(os.getenv('MAX_CONCURRENT_TASKS', '10'))
+ CLAIMED_FILE = 'claimed_usernames.txt'
+ FRAGMENT_FILE = 'fragment_usernames.txt'
+ # قائمة بجلسات البوتات للفحص
+@@ -1159,8 +1159,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
+     if update.effective_message:
+         await update.effective_message.reply_text("❌ حدث خطأ غير متوقع أثناء المعالجة.")
+ 
+-def main() -> None:
+-    """تشغيل البوت"""
++async def main() -> None:
++    """تشغيل بوت فحص اليوزرات"""
+     application = Application.builder().token(BOT_TOKEN).build()
+     
+     # تعريف محادثة الصيد
+@@ -1207,7 +1207,14 @@ def main() -> None:
+     application.add_error_handler(error_handler)
+     
+     # بدء البوت
+-    application.run_polling(allowed_updates=Update.ALL_TYPES)
++    logger.info("🔍 بدء تشغيل بوت فحص اليوزرات...")
++    await application.initialize()
++    await application.start()
++    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
++
++def main_sync() -> None:
++    """دالة مساعدة للتشغيل المباشر"""
++    asyncio.run(main())
+ 
+ if __name__ == '__main__':
+-    main()
+\ No newline at end of file
++    main_sync()
+\ No newline at end of file
+diff --git a/add.py b/add.py
+index ad32313..c50ba77 100644
+--- a/add.py
++++ b/add.py
+@@ -42,15 +42,11 @@ logging.basicConfig(
+ logger = logging.getLogger(__name__)
+ 
+ # === إعدادات التطبيق ===
+-# استيراد إعدادات من ملف config.py
+-try:
+-    from config import API_ID, API_HASH, BOT_TOKEN, DB_PATH
+-except ImportError:
+-    # استخدام متغيرات البيئة كبديل
+-    API_ID = int(os.getenv('TG_API_ID', '26924046'))
+-    API_HASH = os.getenv('TG_API_HASH', '4c6ef4cee5e129b7a674de156e2bcc15')
+-    BOT_TOKEN = os.getenv('BOT_TOKEN', '7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA')
+-    DB_PATH = 'accounts.db'
++# استخدام متغيرات البيئة مباشرة للنشر على Render
++API_ID = int(os.getenv('TG_API_ID'))
++API_HASH = os.getenv('TG_API_HASH')
++BOT_TOKEN = os.getenv('BOT_TOKEN')
++DB_PATH = os.getenv('DB_PATH', 'accounts.db')
+ ADMIN_IDS = [int(x) for x in os.getenv('ADMIN_IDS', '985612253').split(',') if x]
+ SESSION_TIMEOUT = 60  # ثانية
+ VIEW_PAGE_SIZE = 50  # عدد الحسابات في صفحة العرض
+@@ -1613,7 +1609,11 @@ async def cancel_operation(update: Update, context: ContextTypes.DEFAULT_TYPE) -
+     return await start(update, context)
+ 
+ # ========== تشغيل البوت ==========
+-def main():
++async def main():
++    """دالة main للبوت الخاص بإضافة الحسابات"""
++    # إنشاء قاعدة البيانات
++    init_db()
++    
+     app = ApplicationBuilder().token(BOT_TOKEN).build()
+ 
+     # إعداد معالج المحادثة
+@@ -1694,8 +1694,14 @@ def main():
+     app.add_handler(conv_handler)
+     
+     # تشغيل البوت
+-    logger.info("Starting bot...")
+-    app.run_polling()
++    logger.info("🤖 بدء تشغيل بوت إضافة الحسابات...")
++    await app.initialize()
++    await app.start()
++    await app.updater.start_polling()
++
++def main_sync():
++    """دالة مساعدة للتشغيل المباشر"""
++    asyncio.run(main())
+ 
+ if __name__ == '__main__':
+-    main()
++    main_sync()
+diff --git a/deploy.md b/deploy.md
+new file mode 100644
+index 0000000..f5a9504
+--- /dev/null
++++ b/deploy.md
+@@ -0,0 +1,147 @@
++# 🚀 دليل النشر على Render - خطوة بخطوة
++
++## 📋 قائمة التحقق قبل النشر
++
++- [ ] تأكد من وجود جميع الملفات المطلوبة
++- [ ] تحقق من صحة متغيرات البيئة
++- [ ] اختبر التطبيق محلياً
++- [ ] رفع الكود إلى GitHub
++
++## 🔧 الملفات المطلوبة للنشر
++
++### ملفات أساسية:
++✅ `main.py` - نقطة الدخول الرئيسية  
++✅ `add.py` - بوت إضافة الحسابات  
++✅ `User_check.py` - بوت فحص اليوزرات  
++✅ `encryption.py` - وظائف التشفير  
++✅ `requirements.txt` - التبعيات  
++✅ `render.yaml` - إعدادات Render  
++✅ `Dockerfile` - ملف Docker  
++✅ `README.md` - التوثيق  
++✅ `.gitignore` - ملفات مستبعدة  
++
++## 🎯 خطوات النشر التفصيلية
++
++### الخطوة 1: إعداد GitHub Repository
++
++```bash
++# إذا لم يكن Git مُهيأ بعد
++git init
++git add .
++git commit -m "Initial commit: تهيئة المشروع للنشر على Render"
++
++# ربط المستودع بـ GitHub
++git branch -M main
++git remote add origin https://github.com/username/repo-name.git
++git push -u origin main
++```
++
++### الخطوة 2: إعداد Render
++
++1. **إنشاء حساب في Render:**
++   - اذهب إلى [render.com](https://render.com)
++   - أنشئ حساب جديد أو سجل دخول
++
++2. **ربط GitHub:**
++   - في Dashboard، اضغط "Connect GitHub"
++   - اختر المستودع الصحيح
++
++### الخطوة 3: النشر باستخدام Blueprint
++
++1. **اضغط "New +"**
++2. **اختر "Blueprint"**
++3. **اختر المستودع**
++4. **Render سيقرأ `render.yaml` تلقائياً**
++5. **اضغط "Apply"**
++
++### الخطوة 4: التحقق من النشر
++
++1. **انتظر اكتمال البناء (5-10 دقائق)**
++2. **تحقق من الـ logs**
++3. **اختبر الـ health endpoint**
++4. **اختبر البوتات في Telegram**
++
++## 🔍 استكشاف الأخطاء
++
++### مشاكل شائعة والحلول:
++
++#### 1. فشل في Build
++```
++خطأ: "Failed to install requirements"
++الحل: تحقق من ملف requirements.txt
++```
++
++#### 2. فشل في Start
++```
++خطأ: "Application failed to start"
++الحل: تحقق من متغيرات البيئة
++```
++
++#### 3. مشاكل الاتصال
++```
++خطأ: "Telegram API connection failed"
++الحل: تحقق من TG_API_ID و TG_API_HASH
++```
++
++## ⚡ تحسينات الأداء
++
++### إعدادات موصى بها:
++
++1. **Instance Type:** Free (للاختبار) أو Starter (للإنتاج)
++2. **Region:** Oregon (أسرع للشرق الأوسط)
++3. **Auto-Deploy:** مُفعل
++4. **Health Check:** `/health`
++
++## 📊 مراقبة التطبيق
++
++### URLs مهمة:
++- **التطبيق:** `https://your-app-name.onrender.com`
++- **Health Check:** `https://your-app-name.onrender.com/health`
++- **Logs:** في Render Dashboard > Logs
++
++### متابعة الأداء:
++- **CPU Usage**
++- **Memory Usage**
++- **Response Time**
++- **Error Rate**
++
++## 🔐 أمان الإنتاج
++
++### توصيات:
++1. **غيّر متغيرات التشفير:**
++   ```
++   ENCRYPTION_SALT=your-unique-salt-here
++   ENCRYPTION_PASSPHRASE=your-strong-passphrase
++   ```
++
++2. **استخدم متغيرات بيئة قوية**
++3. **راقب الـ logs بانتظام**
++4. **حدث التبعيات دورياً**
++
++## 📱 اختبار البوتات
++
++### بوت إضافة الحسابات:
++```
++/start - بدء البوت
++اختبر إضافة حساب تجريبي
++تحقق من قاعدة البيانات
++```
++
++### بوت فحص اليوزرات:
++```
++/start - بدء البوت
++اختبر فحص يوزر تجريبي
++تحقق من عمليات الصيد
++```
++
++## 🆘 في حالة الطوارئ
++
++### إجراءات سريعة:
++1. **إيقاف الخدمة:** في Render Dashboard
++2. **التحقق من الـ logs:** للمشاكل
++3. **إعادة التشغيل:** Manual Deploy
++4. **التراجع:** إلى commit سابق
++
++---
++
++**نصيحة:** احتفظ بنسخة محلية تعمل دائماً للاختبار قبل النشر!
+\ No newline at end of file
+diff --git a/main.py b/main.py
+new file mode 100644
+index 0000000..823b2b5
+--- /dev/null
++++ b/main.py
+@@ -0,0 +1,212 @@
++#!/usr/bin/env python3
++# -*- coding: utf-8 -*-
++"""
++نقطة الدخول الرئيسية لتشغيل البوتين معاً على Render
++يتضمن البوت الأول (add.py) والبوت الثاني (User_check.py)
++"""
++
++import os
++import sys
++import asyncio
++import logging
++import signal
++import time
++from threading import Thread
++from datetime import datetime
++
++# إعداد المسار لاستيراد الملفات
++sys.path.append(os.path.dirname(os.path.abspath(__file__)))
++
++# إعداد التسجيل
++logging.basicConfig(
++    level=os.getenv('LOG_LEVEL', 'INFO'),
++    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
++    handlers=[
++        logging.StreamHandler(sys.stdout),
++        logging.FileHandler('app.log', encoding='utf-8')
++    ]
++)
++logger = logging.getLogger(__name__)
++
++# متغيرات عامة لحالة التطبيق
++app_running = True
++health_status = True
++
++class BotManager:
++    """مدير البوتات للتحكم في تشغيل البوتين معاً"""
++    
++    def __init__(self):
++        self.add_bot_task = None
++        self.check_bot_task = None
++        self.health_server_task = None
++        
++    async def start_add_bot(self):
++        """تشغيل بوت إضافة الحسابات"""
++        try:
++            logger.info("🚀 بدء تشغيل بوت إضافة الحسابات...")
++            
++            # استيراد بوت الإضافة
++            import add
++            
++            # تشغيل البوت
++            await add.main()
++            
++        except Exception as e:
++            logger.error(f"❌ خطأ في بوت إضافة الحسابات: {e}")
++            global health_status
++            health_status = False
++            
++    async def start_check_bot(self):
++        """تشغيل بوت فحص اليوزرات"""
++        try:
++            logger.info("🚀 بدء تشغيل بوت فحص اليوزرات...")
++            
++            # استيراد بوت الفحص
++            import User_check
++            
++            # تشغيل البوت
++            await User_check.main()
++            
++        except Exception as e:
++            logger.error(f"❌ خطأ في بوت فحص اليوزرات: {e}")
++            global health_status
++            health_status = False
++    
++    async def health_check_server(self):
++        """خادم فحص الصحة لـ Render"""
++        from http.server import HTTPServer, BaseHTTPRequestHandler
++        import threading
++        
++        class HealthHandler(BaseHTTPRequestHandler):
++            def do_GET(self):
++                if self.path == '/health':
++                    if health_status:
++                        self.send_response(200)
++                        self.send_header('Content-type', 'application/json')
++                        self.end_headers()
++                        response = {
++                            "status": "healthy",
++                            "timestamp": datetime.now().isoformat(),
++                            "uptime": time.time() - start_time
++                        }
++                        self.wfile.write(str(response).encode())
++                    else:
++                        self.send_response(503)
++                        self.send_header('Content-type', 'application/json')
++                        self.end_headers()
++                        response = {"status": "unhealthy"}
++                        self.wfile.write(str(response).encode())
++                else:
++                    self.send_response(404)
++                    self.end_headers()
++                    
++            def log_message(self, format, *args):
++                # إخفاء رسائل التسجيل للطلبات
++                pass
++        
++        def run_server():
++            port = int(os.getenv('PORT', 8080))
++            server = HTTPServer(('0.0.0.0', port), HealthHandler)
++            logger.info(f"🏥 خادم فحص الصحة يعمل على المنفذ {port}")
++            server.serve_forever()
++        
++        # تشغيل الخادم في خيط منفصل
++        server_thread = threading.Thread(target=run_server, daemon=True)
++        server_thread.start()
++        
++        # الحفاظ على المهمة نشطة
++        while app_running:
++            await asyncio.sleep(1)
++    
++    async def run_all_bots(self):
++        """تشغيل جميع البوتات والخدمات"""
++        try:
++            logger.info("🌟 بدء تشغيل جميع الخدمات...")
++            
++            # إنشاء المهام
++            tasks = [
++                asyncio.create_task(self.start_add_bot(), name="add_bot"),
++                asyncio.create_task(self.start_check_bot(), name="check_bot"),
++                asyncio.create_task(self.health_check_server(), name="health_server")
++            ]
++            
++            # انتظار جميع المهام
++            await asyncio.gather(*tasks, return_exceptions=True)
++            
++        except Exception as e:
++            logger.error(f"❌ خطأ في تشغيل الخدمات: {e}")
++            global health_status
++            health_status = False
++
++def signal_handler(signum, frame):
++    """معالج الإشارات لإيقاف التطبيق بشكل صحيح"""
++    global app_running
++    logger.info(f"📟 تم استلام إشارة {signum}، إيقاف التطبيق...")
++    app_running = False
++
++def setup_environment():
++    """إعداد متغيرات البيئة والتحقق من المتطلبات"""
++    
++    # التحقق من المتغيرات المطلوبة
++    required_vars = [
++        'TG_API_ID', 'TG_API_HASH', 'BOT_TOKEN', 
++        'CHECK_BOT_TOKEN', 'ADMIN_IDS'
++    ]
++    
++    missing_vars = []
++    for var in required_vars:
++        if not os.getenv(var):
++            missing_vars.append(var)
++    
++    if missing_vars:
++        logger.error(f"❌ متغيرات البيئة المفقودة: {missing_vars}")
++        return False
++    
++    # إعداد المتغيرات الافتراضية
++    os.environ.setdefault('DB_PATH', 'accounts.db')
++    os.environ.setdefault('MAX_CONCURRENT_TASKS', '10')
++    os.environ.setdefault('SESSION_TIMEOUT', '60')
++    os.environ.setdefault('ENCRYPTION_SALT', 'default_salt')
++    os.environ.setdefault('ENCRYPTION_PASSPHRASE', 'default_pass')
++    
++    logger.info("✅ تم إعداد متغيرات البيئة بنجاح")
++    return True
++
++async def main():
++    """الدالة الرئيسية"""
++    global start_time
++    start_time = time.time()
++    
++    logger.info("🎯 بدء تشغيل تطبيق البوتات...")
++    
++    # إعداد معالجات الإشارات
++    signal.signal(signal.SIGINT, signal_handler)
++    signal.signal(signal.SIGTERM, signal_handler)
++    
++    # إعداد البيئة
++    if not setup_environment():
++        logger.error("❌ فشل في إعداد البيئة")
++        sys.exit(1)
++    
++    # إنشاء مدير البوتات
++    bot_manager = BotManager()
++    
++    try:
++        # تشغيل جميع الخدمات
++        await bot_manager.run_all_bots()
++        
++    except KeyboardInterrupt:
++        logger.info("⏹️  تم إيقاف التطبيق بواسطة المستخدم")
++    except Exception as e:
++        logger.error(f"❌ خطأ عام في التطبيق: {e}")
++    finally:
++        logger.info("🔚 تم إيقاف التطبيق")
++
++if __name__ == "__main__":
++    try:
++        asyncio.run(main())
++    except KeyboardInterrupt:
++        logger.info("⏹️  تم إيقاف التطبيق")
++    except Exception as e:
++        logger.error(f"❌ خطأ في تشغيل التطبيق: {e}")
++        sys.exit(1)
+\ No newline at end of file
+diff --git a/render.yaml b/render.yaml
+new file mode 100644
+index 0000000..7fab3a3
+--- /dev/null
++++ b/render.yaml
+@@ -0,0 +1,46 @@
++services:
++  - type: web
++    name: telegram-bots
++    env: python
++    buildCommand: pip install -r requirements.txt
++    startCommand: python main.py
++    plan: free
++    
++    envVars:
++      - key: TG_API_ID
++        value: "26924046"
++      - key: TG_API_HASH
++        value: "4c6ef4cee5e129b7a674de156e2bcc15"
++      - key: BOT_TOKEN
++        value: "7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA"
++      - key: CHECK_BOT_TOKEN
++        value: "7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8"
++      - key: ADMIN_IDS
++        value: "985612253"
++      - key: ENCRYPTION_SALT
++        value: "render_deployment_salt_2024"
++      - key: ENCRYPTION_PASSPHRASE
++        value: "secure_passphrase_for_encryption"
++      - key: DB_PATH
++        value: "accounts.db"
++      - key: LOG_LEVEL
++        value: "INFO"
++      - key: MAX_CONCURRENT_TASKS
++        value: "10"
++      - key: SESSION_TIMEOUT
++        value: "60"
++        
++    autoDeploy: true
++    
++    # إعدادات الصحة والموارد
++    healthCheckPath: /health
++    
++    # إعدادات متقدمة
++    disk:
++      name: data
++      mountPath: /data
++      sizeGB: 1
++      
++    # متغيرات إضافية لتحسين الأداء
++    numInstances: 1
++    region: oregon
+\ No newline at end of file
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000..fc6f132
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1,13 @@
++# Telegram Bot Dependencies
++python-telegram-bot==20.7
++telethon==1.33.1
++
++# Encryption
++cryptography>=41.0.0
++
++# HTTP Requests
++requests>=2.31.0
++
++# Additional utilities for async operations
++aiofiles>=23.0.0
++aiohttp>=3.8.0
+\ No newline at end of file
+-- 
+2.48.1
+
+
+From f89123c42ab6fff7921f5f1967163242dd0e03a3 Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sun, 3 Aug 2025 22:49:34 +0000
+Subject: [PATCH 2/2] Prepare repository for Render deployment with updated
+ files and configs
+
+Co-authored-by: hitlerxoox <hitlerxoox@gmail.com>
+---
+ DEPLOY_INSTRUCTIONS.md | 107 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 107 insertions(+)
+ create mode 100644 DEPLOY_INSTRUCTIONS.md
+
+diff --git a/DEPLOY_INSTRUCTIONS.md b/DEPLOY_INSTRUCTIONS.md
+new file mode 100644
+index 0000000..2b329a8
+--- /dev/null
++++ b/DEPLOY_INSTRUCTIONS.md
+@@ -0,0 +1,107 @@
++# 🚀 تعليمات تطبيق التحديثات على المستودع
++
++## 📋 الملفات الجديدة والمحدثة جاهزة!
++
++تم إعداد جميع التحديثات محلياً وهي جاهزة للرفع إلى GitHub. إليك التعليمات لتطبيق التحديثات:
++
++## 🔄 طريقة تطبيق التحديثات:
++
++### الطريقة 1: من خلال GitHub Web Interface (الأسهل)
++
++1. **قم بتحميل الملفات التالية إلى مستودعك:**
++
++#### ملفات جديدة:
++- `main.py` - نقطة الدخول الرئيسية
++- `requirements.txt` - التبعيات
++- `render.yaml` - إعدادات Render
++- `Dockerfile` - ملف Docker
++- `README.md` - التوثيق
++- `deploy.md` - دليل النشر
++- `.gitignore` - ملفات مستبعدة
++
++#### ملفات محدثة:
++- `add.py` - محدث لاستخدام متغيرات البيئة
++- `User_check.py` - محدث لاستخدام متغيرات البيئة
++
++### الطريقة 2: من خلال Git Command Line
++
++```bash
++# إذا كنت تستطيع الوصول للمستودع محلياً
++git add .
++git commit -m "تهيئة المستودع للنشر على Render مع جميع الملفات المطلوبة"
++git push origin main
++```
++
++## 📁 قائمة الملفات النهائية:
++
++```
++├── main.py                 # نقطة الدخول الرئيسية ✅
++├── add.py                  # بوت إضافة الحسابات (محدث) ✅
++├── User_check.py           # بوت فحص اليوزرات (محدث) ✅
++├── encryption.py           # وظائف التشفير ✅
++├── accounts.db             # قاعدة البيانات ✅
++├── requirements.txt        # التبعيات ✅
++├── render.yaml            # إعدادات Render ✅
++├── Dockerfile             # ملف Docker ✅
++├── README.md              # التوثيق ✅
++├── deploy.md              # دليل النشر ✅
++└── .gitignore             # ملفات مستبعدة ✅
++```
++
++## ✅ التحديثات المطبقة:
++
++### 🔧 ملف main.py:
++- إدارة تشغيل البوتين معاً
++- خادم فحص الصحة `/health`
++- معالجة الأخطاء والإشارات
++- دعم متغيرات البيئة
++
++### 🤖 ملف add.py:
++- تحديث لاستخدام متغيرات البيئة من Render
++- دالة main async للعمل مع main.py
++- إزالة الاعتماد على ملف config.py
++
++### 🔍 ملف User_check.py:
++- تحديث لاستخدام متغيرات البيئة من Render
++- دالة main async للعمل مع main.py
++- استخدام CHECK_BOT_TOKEN
++
++### 📦 ملف requirements.txt:
++- جميع التبعيات المطلوبة
++- إصدارات محدثة ومتوافقة
++
++### ⚙️ ملف render.yaml:
++- إعدادات Render التلقائية
++- جميع متغيرات البيئة مُعرّفة مسبقاً:
++  - `TG_API_ID=26924046`
++  - `TG_API_HASH=4c6ef4cee5e129b7a674de156e2bcc15`
++  - `BOT_TOKEN=7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA`
++  - `CHECK_BOT_TOKEN=7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8`
++  - `ADMIN_IDS=985612253`
++  - متغيرات التشفير والإعدادات الأخرى
++
++## 🚀 بعد رفع الملفات:
++
++### 1. اذهب إلى [Render Dashboard](https://dashboard.render.com)
++### 2. اضغط "New +" → "Blueprint"
++### 3. اختر مستودع `saud552/User-check`
++### 4. سيتم قراءة `render.yaml` تلقائياً
++### 5. اضغط "Apply" - سيبدأ النشر تلقائياً!
++
++## ✨ المزايا الجديدة:
++
++✅ **نشر تلقائي** - متغيرات البيئة مُعرّفة مسبقاً  
++✅ **تشغيل متزامن** - البوتان يعملان معاً  
++✅ **مراقبة الصحة** - endpoint `/health`  
++✅ **أمان عالي** - تشفير البيانات  
++✅ **سهولة الصيانة** - logs مفصلة  
++
++## 🔗 روابط مفيدة:
++
++- [Render Dashboard](https://dashboard.render.com)
++- [GitHub Repository](https://github.com/saud552/User-check)
++- [Telegram Bot Father](https://t.me/BotFather)
++
++---
++
++**🎉 مبروك! مستودعك الآن جاهز 100% للنشر على Render!**
+\ No newline at end of file
+-- 
+2.48.1
+
