@@ -48,13 +48,26 @@ class BotManager:
             # استيراد بوت الإضافة
             import add
             
-            # تشغيل البوت
+            # التحقق من التوكن قبل التشغيل
+            try:
+                from config import BOT_TOKEN
+                logger.info(f"🔑 استخدام توكن البوت: {BOT_TOKEN[:10]}...")
+            except:
+                logger.warning("⚠️ لم يتم العثور على توكن البوت في config.py")
+            
+            # تشغيل البوت مع معالجة تضارب البوتات
             await add.main()
             
         except Exception as e:
-            logger.error(f"❌ خطأ في بوت إضافة الحسابات: {e}")
-            global health_status
-            health_status = False
+            if "Conflict" in str(e):
+                logger.error("⚠️ تضارب في البوت - ربما يعمل بوت آخر بنفس التوكن")
+                logger.info("💡 سيتم المحاولة مرة أخرى بعد 10 ثوانٍ...")
+                await asyncio.sleep(10)
+                return await self.start_add_bot()
+            else:
+                logger.error(f"❌ خطأ في بوت إضافة الحسابات: {e}")
+                global health_status
+                health_status = False
             
     async def start_check_bot(self):
         """تشغيل بوت فحص اليوزرات"""
@@ -64,13 +77,26 @@ class BotManager:
             # استيراد بوت الفحص
             import User_check
             
-            # تشغيل البوت
+            # التحقق من التوكن قبل التشغيل
+            try:
+                from config import CHECK_BOT_TOKEN
+                logger.info(f"🔑 استخدام توكن بوت الفحص: {CHECK_BOT_TOKEN[:10]}...")
+            except:
+                logger.warning("⚠️ لم يتم العثور على توكن بوت الفحص في config.py")
+            
+            # تشغيل البوت مع معالجة تضارب البوتات
             await User_check.main()
             
         except Exception as e:
-            logger.error(f"❌ خطأ في بوت فحص اليوزرات: {e}")
-            global health_status
-            health_status = False
+            if "Conflict" in str(e):
+                logger.error("⚠️ تضارب في البوت - ربما يعمل بوت آخر بنفس التوكن")
+                logger.info("💡 سيتم المحاولة مرة أخرى بعد 15 ثوانٍ...")
+                await asyncio.sleep(15)
+                return await self.start_check_bot()
+            else:
+                logger.error(f"❌ خطأ في بوت فحص اليوزرات: {e}")
+                global health_status
+                health_status = False
     
     async def health_check_server(self):
         """خادم فحص الصحة لـ Render"""
