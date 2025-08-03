@@ -147,30 +147,45 @@ def signal_handler(signum, frame):
 def setup_environment():
     """إعداد متغيرات البيئة والتحقق من المتطلبات"""
     
-    # التحقق من المتغيرات المطلوبة
-    required_vars = [
-        'TG_API_ID', 'TG_API_HASH', 'BOT_TOKEN', 
-        'CHECK_BOT_TOKEN', 'ADMIN_IDS'
-    ]
-    
-    missing_vars = []
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
-    
-    if missing_vars:
-        logger.error(f"❌ متغيرات البيئة المفقودة: {missing_vars}")
-        return False
-    
-    # إعداد المتغيرات الافتراضية
-    os.environ.setdefault('DB_PATH', 'accounts.db')
-    os.environ.setdefault('MAX_CONCURRENT_TASKS', '10')
-    os.environ.setdefault('SESSION_TIMEOUT', '60')
-    os.environ.setdefault('ENCRYPTION_SALT', 'default_salt')
-    os.environ.setdefault('ENCRYPTION_PASSPHRASE', 'default_pass')
-    
-    logger.info("✅ تم إعداد متغيرات البيئة بنجاح")
-    return True
+    # محاولة استيراد الإعدادات من config.py
+    try:
+        from config import validate_config
+        is_valid, missing_vars = validate_config()
+        
+        if not is_valid:
+            logger.error(f"❌ متغيرات الإعداد المفقودة: {missing_vars}")
+            logger.info("💡 سيتم استخدام القيم الافتراضية المضمنة في config.py")
+        
+        logger.info("✅ تم تحميل الإعدادات من config.py بنجاح")
+        return True
+        
+    except ImportError:
+        logger.warning("⚠️ لم يتم العثور على config.py، سيتم استخدام متغيرات البيئة")
+        
+        # التحقق من المتغيرات المطلوبة
+        required_vars = [
+            'TG_API_ID', 'TG_API_HASH', 'BOT_TOKEN', 
+            'CHECK_BOT_TOKEN', 'ADMIN_IDS'
+        ]
+        
+        missing_vars = []
+        for var in required_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            logger.error(f"❌ متغيرات البيئة المفقودة: {missing_vars}")
+            return False
+        
+        # إعداد المتغيرات الافتراضية
+        os.environ.setdefault('DB_PATH', 'accounts.db')
+        os.environ.setdefault('MAX_CONCURRENT_TASKS', '10')
+        os.environ.setdefault('SESSION_TIMEOUT', '60')
+        os.environ.setdefault('ENCRYPTION_SALT', 'default_salt')
+        os.environ.setdefault('ENCRYPTION_PASSPHRASE', 'default_pass')
+        
+        logger.info("✅ تم إعداد متغيرات البيئة بنجاح")
+        return True
 
 async def main():
     """الدالة الرئيسية"""
