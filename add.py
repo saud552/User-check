@@ -42,15 +42,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # === إعدادات التطبيق ===
-# استيراد إعدادات من ملف config.py
-try:
-    from config import API_ID, API_HASH, BOT_TOKEN, DB_PATH
-except ImportError:
-    # استخدام متغيرات البيئة كبديل
-    API_ID = int(os.getenv('TG_API_ID', '26924046'))
-    API_HASH = os.getenv('TG_API_HASH', '4c6ef4cee5e129b7a674de156e2bcc15')
-    BOT_TOKEN = os.getenv('BOT_TOKEN', '7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA')
-    DB_PATH = 'accounts.db'
+# استخدام متغيرات البيئة مباشرة للنشر على Render
+API_ID = int(os.getenv('TG_API_ID'))
+API_HASH = os.getenv('TG_API_HASH')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+DB_PATH = os.getenv('DB_PATH', 'accounts.db')
 ADMIN_IDS = [int(x) for x in os.getenv('ADMIN_IDS', '985612253').split(',') if x]
 SESSION_TIMEOUT = 60  # ثانية
 VIEW_PAGE_SIZE = 50  # عدد الحسابات في صفحة العرض
@@ -1613,7 +1609,11 @@ async def cancel_operation(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return await start(update, context)
 
 # ========== تشغيل البوت ==========
-def main():
+async def main():
+    """دالة main للبوت الخاص بإضافة الحسابات"""
+    # إنشاء قاعدة البيانات
+    init_db()
+    
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # إعداد معالج المحادثة
@@ -1694,8 +1694,14 @@ def main():
     app.add_handler(conv_handler)
     
     # تشغيل البوت
-    logger.info("Starting bot...")
-    app.run_polling()
+    logger.info("🤖 بدء تشغيل بوت إضافة الحسابات...")
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+
+def main_sync():
+    """دالة مساعدة للتشغيل المباشر"""
+    asyncio.run(main())
 
 if __name__ == '__main__':
-    main()
+    main_sync()

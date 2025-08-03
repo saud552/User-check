@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: telegram-bots
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    plan: free
+    
+    envVars:
+      - key: TG_API_ID
+        value: "26924046"
+      - key: TG_API_HASH
+        value: "4c6ef4cee5e129b7a674de156e2bcc15"
+      - key: BOT_TOKEN
+        value: "7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA"
+      - key: CHECK_BOT_TOKEN
+        value: "7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8"
+      - key: ADMIN_IDS
+        value: "985612253"
+      - key: ENCRYPTION_SALT
+        value: "render_deployment_salt_2024"
+      - key: ENCRYPTION_PASSPHRASE
+        value: "secure_passphrase_for_encryption"
+      - key: DB_PATH
+        value: "accounts.db"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: MAX_CONCURRENT_TASKS
+        value: "10"
+      - key: SESSION_TIMEOUT
+        value: "60"
+        
+    autoDeploy: true
+    
+    # إعدادات الصحة والموارد
+    healthCheckPath: /health
+    
+    # إعدادات متقدمة
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+      
+    # متغيرات إضافية لتحسين الأداء
+    numInstances: 1
+    region: oregon

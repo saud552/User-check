@@ -35,14 +35,14 @@ from telethon.tl.functions.channels import CreateChannelRequest, UpdateUsernameR
 from telethon.tl.types import Channel, InputChannel
 from encryption import decrypt_session
 
-# إعدادات البوت
-API_ID = 26924046
-API_HASH = '4c6ef4cee5e129b7a674de156e2bcc15'
-BOT_TOKEN = '7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8'
-ADMIN_IDS = [985612253]  # استبدل برقمك الخاص
-DB_PATH = 'accounts.db'  # قاعدة بيانات مشتركة مع بوت إضافة الحسابات
+# إعدادات البوت - استخدام متغيرات البيئة للنشر على Render
+API_ID = int(os.getenv('TG_API_ID'))
+API_HASH = os.getenv('TG_API_HASH')
+BOT_TOKEN = os.getenv('CHECK_BOT_TOKEN')
+ADMIN_IDS = [int(x) for x in os.getenv('ADMIN_IDS', '985612253').split(',') if x]
+DB_PATH = os.getenv('DB_PATH', 'accounts.db')
 LOG_FILE = 'username_checker.log'
-MAX_CONCURRENT_TASKS = 10
+MAX_CONCURRENT_TASKS = int(os.getenv('MAX_CONCURRENT_TASKS', '10'))
 CLAIMED_FILE = 'claimed_usernames.txt'
 FRAGMENT_FILE = 'fragment_usernames.txt'
 # قائمة بجلسات البوتات للفحص
@@ -1159,8 +1159,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if update.effective_message:
         await update.effective_message.reply_text("❌ حدث خطأ غير متوقع أثناء المعالجة.")
 
-def main() -> None:
-    """تشغيل البوت"""
+async def main() -> None:
+    """تشغيل بوت فحص اليوزرات"""
     application = Application.builder().token(BOT_TOKEN).build()
     
     # تعريف محادثة الصيد
@@ -1207,7 +1207,14 @@ def main() -> None:
     application.add_error_handler(error_handler)
     
     # بدء البوت
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    logger.info("🔍 بدء تشغيل بوت فحص اليوزرات...")
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+
+def main_sync() -> None:
+    """دالة مساعدة للتشغيل المباشر"""
+    asyncio.run(main())
 
 if __name__ == '__main__':
-    main()
+    main_sync()
