@@ -45,25 +45,27 @@ class BotManager:
         try:
             logger.info("🚀 بدء تشغيل بوت إضافة الحسابات...")
             
+            # التحقق من التوكن قبل الاستيراد
+            try:
+                from config import BOT_TOKEN as ADD_BOT_TOKEN
+                logger.info(f"🔑 بوت الإضافة - التوكن: {ADD_BOT_TOKEN[:20]}...")
+                if not ADD_BOT_TOKEN or len(ADD_BOT_TOKEN) < 20:
+                    raise ValueError("توكن بوت الإضافة غير صحيح")
+            except:
+                logger.error("❌ لم يتم العثور على توكن بوت الإضافة")
+                return
+            
             # استيراد بوت الإضافة
             import add
-            
-            # التحقق من التوكن قبل التشغيل
-            try:
-                from config import BOT_TOKEN
-                logger.info(f"🔑 استخدام توكن البوت: {BOT_TOKEN[:10]}...")
-            except:
-                logger.warning("⚠️ لم يتم العثور على توكن البوت في config.py")
             
             # تشغيل البوت مع معالجة تضارب البوتات
             await add.main()
             
         except Exception as e:
             if "Conflict" in str(e):
-                logger.error("⚠️ تضارب في البوت - ربما يعمل بوت آخر بنفس التوكن")
-                logger.info("💡 سيتم المحاولة مرة أخرى بعد 10 ثوانٍ...")
-                await asyncio.sleep(10)
-                return await self.start_add_bot()
+                logger.error("⚠️ تضارب في بوت الإضافة - ربما يعمل بوت آخر بنفس التوكن")
+                logger.info("💡 سيتم إيقاف بوت الإضافة مؤقتاً...")
+                await asyncio.sleep(30)
             else:
                 logger.error(f"❌ خطأ في بوت إضافة الحسابات: {e}")
                 global health_status
@@ -74,25 +76,27 @@ class BotManager:
         try:
             logger.info("🚀 بدء تشغيل بوت فحص اليوزرات...")
             
-            # استيراد بوت الفحص
-            import User_check
-            
-            # التحقق من التوكن قبل التشغيل
+            # التحقق من التوكن قبل الاستيراد
             try:
                 from config import CHECK_BOT_TOKEN
-                logger.info(f"🔑 استخدام توكن بوت الفحص: {CHECK_BOT_TOKEN[:10]}...")
+                logger.info(f"🔑 بوت الفحص - التوكن: {CHECK_BOT_TOKEN[:20]}...")
+                if not CHECK_BOT_TOKEN or len(CHECK_BOT_TOKEN) < 20:
+                    raise ValueError("توكن بوت الفحص غير صحيح")
             except:
-                logger.warning("⚠️ لم يتم العثور على توكن بوت الفحص في config.py")
+                logger.error("❌ لم يتم العثور على توكن بوت الفحص")
+                return
+            
+            # استيراد بوت الفحص
+            import User_check
             
             # تشغيل البوت مع معالجة تضارب البوتات
             await User_check.main()
             
         except Exception as e:
             if "Conflict" in str(e):
-                logger.error("⚠️ تضارب في البوت - ربما يعمل بوت آخر بنفس التوكن")
-                logger.info("💡 سيتم المحاولة مرة أخرى بعد 15 ثوانٍ...")
-                await asyncio.sleep(15)
-                return await self.start_check_bot()
+                logger.error("⚠️ تضارب في بوت الفحص - ربما يعمل بوت آخر بنفس التوكن")
+                logger.info("💡 سيتم إيقاف بوت الفحص مؤقتاً...")
+                await asyncio.sleep(30)
             else:
                 logger.error(f"❌ خطأ في بوت فحص اليوزرات: {e}")
                 global health_status
@@ -149,14 +153,24 @@ class BotManager:
         try:
             logger.info("🌟 بدء تشغيل جميع الخدمات...")
             
-            # إنشاء المهام
-            tasks = [
-                asyncio.create_task(self.start_add_bot(), name="add_bot"),
-                asyncio.create_task(self.start_check_bot(), name="check_bot"),
-                asyncio.create_task(self.health_check_server(), name="health_server")
-            ]
+            # بدء خادم فحص الصحة أولاً
+            health_task = asyncio.create_task(self.health_check_server(), name="health_server")
+            
+            # انتظار قليل قبل بدء البوتات
+            await asyncio.sleep(2)
+            
+            # تشغيل البوتات بشكل متتالي مع فترات انتظار
+            logger.info("🤖 بدء تشغيل بوت الإضافة...")
+            add_task = asyncio.create_task(self.start_add_bot(), name="add_bot")
+            
+            # انتظار 5 ثوانٍ قبل بدء البوت الثاني
+            await asyncio.sleep(5)
+            
+            logger.info("🔍 بدء تشغيل بوت الفحص...")
+            check_task = asyncio.create_task(self.start_check_bot(), name="check_bot")
             
             # انتظار جميع المهام
+            tasks = [add_task, check_task, health_task]
             await asyncio.gather(*tasks, return_exceptions=True)
             
         except Exception as e:

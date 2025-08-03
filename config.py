@@ -81,6 +81,18 @@ def validate_config():
         if not var_value or (isinstance(var_value, list) and len(var_value) == 0):
             missing_vars.append(var_name)
     
+    # التحقق من أن التوكنز مختلفة
+    if BOT_TOKEN and CHECK_BOT_TOKEN:
+        if BOT_TOKEN == CHECK_BOT_TOKEN:
+            print("⚠️ تحذير: توكن بوت الإضافة وبوت الفحص متطابقان!")
+            print(f"🔑 بوت الإضافة: {BOT_TOKEN}")
+            print(f"🔑 بوت الفحص: {CHECK_BOT_TOKEN}")
+            return False, ['DUPLICATE_TOKENS']
+        else:
+            print(f"✅ التوكنز مختلفة:")
+            print(f"🤖 بوت الإضافة: {BOT_TOKEN[:20]}...")
+            print(f"🔍 بوت الفحص: {CHECK_BOT_TOKEN[:20]}...")
+    
     if missing_vars:
         return False, missing_vars
     

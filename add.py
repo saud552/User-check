@@ -41,16 +41,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# === إعدادات التطبيق ===
-# استيراد الإعدادات من ملف config.py
+# === إعدادات التطبيق - بوت إضافة الحسابات ===
+# تعريف محدد لبوت إضافة الحسابات فقط
 try:
     from config import (
         TG_API_ID as API_ID, TG_API_HASH as API_HASH, 
-        BOT_TOKEN, DB_PATH, ADMIN_IDS, SESSION_TIMEOUT,
+        BOT_TOKEN as ADD_BOT_TOKEN, DB_PATH, ADMIN_IDS, SESSION_TIMEOUT,
         VIEW_PAGE_SIZE, DEFAULT_PAGE_SIZE, DEVICES
     )
+    # استخدام توكن بوت الإضافة المحدد
+    BOT_TOKEN = ADD_BOT_TOKEN
 except ImportError:
-    # fallback لمتغيرات البيئة
+    # fallback لمتغيرات البيئة - بوت الإضافة
     API_ID = int(os.getenv('TG_API_ID', '26924046'))
     API_HASH = os.getenv('TG_API_HASH', '4c6ef4cee5e129b7a674de156e2bcc15')
     BOT_TOKEN = os.getenv('BOT_TOKEN', '7618405088:AAEikRuG-UXaLYqcrqGjgxf5k4V23U9kcAA')
@@ -1622,6 +1624,13 @@ async def main():
     """دالة main للبوت الخاص بإضافة الحسابات"""
     # إنشاء قاعدة البيانات
     init_db()
+    
+    # طباعة معلومات البوت
+    logger.info("=" * 50)
+    logger.info("🤖 بوت إضافة الحسابات")
+    logger.info(f"🔑 التوكن: {BOT_TOKEN[:25]}...")
+    logger.info(f"👤 المدراء: {ADMIN_IDS}")
+    logger.info("=" * 50)
     
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 

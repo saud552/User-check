@@ -35,18 +35,21 @@ from telethon.tl.functions.channels import CreateChannelRequest, UpdateUsernameR
 from telethon.tl.types import Channel, InputChannel
 from encryption import decrypt_session
 
-# إعدادات البوت - استيراد من config.py
+# === إعدادات البوت - بوت فحص اليوزرات ===
+# تعريف محدد لبوت فحص اليوزرات فقط
 try:
     from config import (
         TG_API_ID as API_ID, TG_API_HASH as API_HASH,
-        CHECK_BOT_TOKEN as BOT_TOKEN, ADMIN_IDS, DB_PATH,
+        CHECK_BOT_TOKEN as USER_CHECK_BOT_TOKEN, ADMIN_IDS, DB_PATH,
         LOG_FILE, MAX_CONCURRENT_TASKS, BOT_SESSIONS,
         TEMPLATE_TYPES, MIN_WAIT_TIME, MAX_WAIT_TIME,
         MAX_COOLDOWN_TIME, EMERGENCY_THRESHOLD, ACCOUNT_CHECK_RATIO,
         CLAIMED_FILE, FRAGMENT_FILE
     )
+    # استخدام توكن بوت فحص اليوزرات المحدد
+    BOT_TOKEN = USER_CHECK_BOT_TOKEN
 except ImportError:
-    # fallback لمتغيرات البيئة
+    # fallback لمتغيرات البيئة - بوت فحص اليوزرات
     API_ID = int(os.getenv('TG_API_ID', '26924046'))
     API_HASH = os.getenv('TG_API_HASH', '4c6ef4cee5e129b7a674de156e2bcc15')
     BOT_TOKEN = os.getenv('CHECK_BOT_TOKEN', '7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8')
@@ -1154,6 +1157,13 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def main() -> None:
     """تشغيل بوت فحص اليوزرات"""
+    # طباعة معلومات البوت
+    logger.info("=" * 50)
+    logger.info("🔍 بوت فحص اليوزرات")
+    logger.info(f"🔑 التوكن: {BOT_TOKEN[:25]}...")
+    logger.info(f"👤 المدراء: {ADMIN_IDS}")
+    logger.info("=" * 50)
+    
     application = Application.builder().token(BOT_TOKEN).build()
     
     # تعريف محادثة الصيد
