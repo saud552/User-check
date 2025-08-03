@@ -46,13 +46,12 @@ username_checker.log
 *.db-journal
 *.db-wal
 
-# Environment variables
-.env
+# Environment variables (excluding production .env)
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-config.py
+# config.py (removing from gitignore as it's needed for deployment)
 
 # OS generated files
 .DS_Store
