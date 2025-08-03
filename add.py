@@ -58,7 +58,7 @@ VIEW_PAGE_SIZE = 50  # عدد الحسابات في صفحة العرض
 DEFAULT_PAGE_SIZE = 5  # عدد العناصر في الصفحة للعمليات الأخرى
 
 if not all([API_ID, API_HASH, BOT_TOKEN]):
-    raise ValueError("يجب تعيين المتغيرات البيئية: TG_API_ID, TG_API_HASH, BOT_TOKEN")
+    raise ValueError("يجب تعيين المتغيرات البيئية: TG_API_ID, TG_API_HASH, ADD_BOT_TOKEN")
 
 # === قائمة أجهزة Android ديناميكية ===
 DEVICES = [
