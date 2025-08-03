@@ -42,7 +42,7 @@ BOT_TOKEN = '7941972743:AAFMmZgx2gRBgOaiY4obfhawleO9p1_TYn8'
 ADMIN_IDS = [985612253]  # استبدل برقمك الخاص
 DB_PATH = 'accounts.db'  # قاعدة بيانات مشتركة مع بوت إضافة الحسابات
 LOG_FILE = 'username_checker.log'
-MAX_CONCURRENT_TASKS = 10
+MAX_CONCURRENT_TASKS = 5
 CLAIMED_FILE = 'claimed_usernames.txt'
 FRAGMENT_FILE = 'fragment_usernames.txt'
 # قائمة بجلسات البوتات للفحص
@@ -56,7 +56,7 @@ SELECT_CATEGORY, ENTER_PATTERN, HUNTING_IN_PROGRESS = range(3)
 HUNTING_PAUSED = 3  # حالة جديدة للإيقاف المؤقت
 
 # ثوابت النظام
-MAX_COOLDOWN_TIME = 3600  # أقصى وقت تبريد مسموح به (ساعة واحدة)
+MAX_COOLDOWN_TIME = 600  # أقصى وقت تبريد مسموح به (ساعة واحدة)
 EMERGENCY_THRESHOLD = 300  # 5 دقائق للتحول لحالة الطوارئ
 MIN_WAIT_TIME = 0.5  # الحد الأدنى للانتظار بين الطلبات
 MAX_WAIT_TIME = 3.0  # الحد الأقصى للانتظار بين الطلبات
