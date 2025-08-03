@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # === إعدادات التطبيق ===
 # استيراد إعدادات من ملف config.py
 try:
-    from config import API_ID, API_HASH, BOT_TOKEN, DB_PATH
+    from config import API_ID, API_HASH, ADD_BOT_TOKEN, DB_PATH
 except ImportError:
     # استخدام متغيرات البيئة كبديل
     BOT_TOKEN = ADD_BOT_TOKEN
