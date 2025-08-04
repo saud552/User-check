@@ -1,6 +1,6 @@
 import asyncio
 
-nest_asyncio.apply()
+asyncio.apply()
 
 from add import main
 from User_check import main
